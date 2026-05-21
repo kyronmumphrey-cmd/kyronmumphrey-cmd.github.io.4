@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<meta charset="utf-8" />
+	<meta name="viewport" content="width=device-width,initial-scale=1" />
+	<title>Class Clicker — 100 Levels</title>
+	<style>
+		:root{--bg:#0f172a;--card:#0b1220;--accent:#60a5fa}
+		html,body{height:100%;margin:0;font-family:Inter,system-ui,Arial;background:linear-gradient(180deg,var(--bg),#071028);color:#e6eef8;display:flex;align-items:center;justify-content:center}
+		.wrap{width:920px;max-width:96%;}
+		header{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
+		button.reset{background:#111827;border:1px solid rgba(255,255,255,0.05);color:#e6eef8;padding:8px 14px;border-radius:8px;cursor:pointer}
+		.status{display:flex;gap:12px;align-items:center}
+		.level{font-weight:700;font-size:18px}
+		.progress{width:420px;height:14px;background:rgba(255,255,255,0.06);border-radius:8px;overflow:hidden}
+		.progress > i{display:block;height:100%;background:linear-gradient(90deg,var(--accent),#7c3aed);width:0%}
+
+		.board{background:linear-gradient(180deg,rgba(255,255,255,0.02),transparent);padding:40px;border-radius:16px;display:flex;gap:32px;align-items:center;box-shadow:0 8px 30px rgba(2,6,23,0.6)}
+		.clicker{width:320px;height:320px;border-radius:50%;background:radial-gradient(circle at 30% 25%,rgba(255,255,255,0.03),transparent 25%),var(--card);display:flex;align-items:center;justify-content:center;cursor:pointer;user-select:none;position:relative}
+		.clicker .label{position:absolute;bottom:18px;font-weight:600;opacity:0.9}
+		.clicker .core{width:180px;height:180px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,var(--accent),#a78bfa);font-size:22px;font-weight:700;color:#021124}
+		.meta{flex:1}
+		.meta p{margin:0 0 12px 0;color:#cde3ff}
+
+		/* small helper animations */
+		@keyframes pulseBase{0%{transform:scale(1)}50%{transform:scale(1.06)}100%{transform:scale(1)}}
+	</style>
+</head>
+<body>
+	<div class="wrap">
+		<header>
+			<div class="status">
+				<div class="level">Level <span id="level">1</span>/100</div>
+				<div class="progress" title="Progress to next level"><i id="bar"></i></div>
+			</div>
+			<div>
+				<button class="reset" id="resetBtn">Reset</button>
+			</div>
+		</header>
+
+		<main class="board">
+			<div class="clicker" id="clicker" title="Click to gain XP">
+				<div class="core" id="core">Click</div>
+				<div class="label" id="label">XP: <span id="xp">0</span>/<span id="needed">10</span></div>
+			</div>
+			<div class="meta">
+				<p id="desc">Welcome — click to gain XP. Each level has a custom animation.</p>
+				<p style="opacity:0.8">Tips: You can hold click or tap. Reset returns to level 1 and clears animations.</p>
+			</div>
+		</main>
+	</div>
+
+	<script>
+		// Simple level/clicker system with 100 levels and per-level custom animations
+		const maxLevel = 100;
+		let level = 1;
+		let xp = 0;
+		let needed = 10; // baseline clicks per level (we scale by level)
+
+		const levelEl = document.getElementById('level');
+		const bar = document.getElementById('bar');
+		const xpEl = document.getElementById('xp');
+		const neededEl = document.getElementById('needed');
+		const clicker = document.getElementById('clicker');
+		const core = document.getElementById('core');
+		const desc = document.getElementById('desc');
+		const resetBtn = document.getElementById('resetBtn');
+
+		function xpForLevel(l){ return Math.max(6, Math.round(10 + l*0.8)); }
+
+		function updateUI(){
+			levelEl.textContent = level;
+			xpEl.textContent = xp;
+			needed = xpForLevel(level);
+			neededEl.textContent = needed;
+			const pct = Math.min(100, Math.round((xp/needed)*100));
+			bar.style.width = pct + '%';
+			desc.textContent = `Level ${level} — ${animationDescription(level)}`;
+		}
+
+		// animation description generator
+		function animationDescription(l){
+			const types = ['Pulse','Spin','Float','Wiggle','Bounce','Hue Shift'];
+			return types[l % types.length] + ` (customized)`;
+		}
+
+		// Apply a custom animation for each level by injecting keyframes when needed
+		function applyLevelAnimation(l){
+			const name = `anim-${l}`;
+			// avoid duplicate rules
+			if ([...document.styleSheets].some(s=>[...s.cssRules].some(r=>r.name===name))){
+				// if rule exists, just set animation
+				core.style.animation = `${name} ${animationDuration(l)}s linear infinite`;
+				return;
+			}
+
+			const style = document.createElement('style');
+			const type = l % 6;
+			const hue = (l * 37) % 360;
+			const dur = animationDuration(l);
+			let keyframes = '';
+
+			switch(type){
+				case 0: // pulse
+					keyframes = `@keyframes ${name}{0%{transform:scale(1);filter:hue-rotate(0deg)}50%{transform:scale(1.12);filter:hue-rotate(10deg)}100%{transform:scale(1);filter:hue-rotate(0deg)}}`;
+					break;
+				case 1: // spin
+					keyframes = `@keyframes ${name}{0%{transform:rotate(0deg)}50%{transform:rotate(180deg) scale(1.02)}100%{transform:rotate(360deg)}}`;
+					break;
+				case 2: // float
+					keyframes = `@keyframes ${name}{0%{transform:translateY(0)}50%{transform:translateY(-14px)}100%{transform:translateY(0)}}`;
+					break;
+				case 3: // wiggle
+					keyframes = `@keyframes ${name}{0%{transform:rotate(-6deg)}25%{transform:rotate(6deg)}50%{transform:rotate(-4deg)}75%{transform:rotate(4deg)}100%{transform:rotate(0deg)}}`;
+					break;
+				case 4: // bounce
+					keyframes = `@keyframes ${name}{0%{transform:translateY(0)}30%{transform:translateY(-30px)}50%{transform:translateY(0)}70%{transform:translateY(-10px)}100%{transform:translateY(0)}}`;
+					break;
+				case 5: // hue shift + scale
+					keyframes = `@keyframes ${name}{0%{filter:hue-rotate(0deg) saturate(1)}50%{filter:hue-rotate(180deg) saturate(1.3) scale(1.03)}100%{filter:hue-rotate(360deg) saturate(1)}}`;
+					break;
+			}
+
+			style.innerHTML = `:root{--level-hue-${l}: ${hue}deg} .core-${l}{background:linear-gradient(135deg,hsl(${hue} 80% 60%), hsl(${(hue+60)%360} 65% 58%));}` + keyframes;
+			document.head.appendChild(style);
+			// set element class to apply background gradient
+			core.classList.forEach(c=>{ if(c.startsWith('core-')) core.classList.remove(c); });
+			core.classList.add(`core-${l}`);
+			core.style.animation = `${name} ${dur}s linear infinite`;
+		}
+
+		function animationDuration(l){
+			return Math.max(1.2, 4 - ((l%4)*0.4));
+		}
+
+		// click behavior
+		let clickInterval = null;
+		function gainXP(n=1){
+			if(level >= maxLevel){ return; }
+			xp += n;
+			if(xp >= needed){
+				xp = xp - needed;
+				level = Math.min(maxLevel, level + 1);
+				// apply new animation every level
+				applyLevelAnimation(level);
+			}
+			updateUI();
+		}
+
+		// Attach click handlers
+		clicker.addEventListener('pointerdown',()=>{
+			gainXP(1);
+			// support hold-to-click
+			clickInterval = setInterval(()=>gainXP(1),120);
+		});
+		document.addEventListener('pointerup',()=>{ clearInterval(clickInterval); clickInterval = null; });
+
+		// reset
+		resetBtn.addEventListener('click',()=>{
+			level = 1; xp = 0; // clear
+			core.style.animation = 'none';
+			// remove per-level core classes from core element
+			core.className = 'core';
+			// optionally remove injected styles: keep to avoid complexity
+			updateUI();
+		});
+
+		// initialize
+		applyLevelAnimation(1);
+		updateUI();
+	</script>
+</body>
+</html>
+
